@@ -14,6 +14,10 @@ import requests
 import urllib
 from PIL import Image
 
+def download_image_partial(args):
+    image_link, filename = args
+    return download_image(image_link, save_folder=download_folder, retries=3, delay=3, filename=filename)
+
 def common_mistake(unit):
     if unit in constants.allowed_units:
         return unit
@@ -46,12 +50,12 @@ def create_placeholder_image(image_save_path):
     except Exception as e:
         return
 
-def download_image(image_link, save_folder, retries=3, delay=3):
+def download_image(image_link, save_folder, retries=3, delay=3, filename=None):
     if not isinstance(image_link, str):
         return
 
-    filename = Path(image_link).name
-    image_save_path = os.path.join(save_folder, filename)
+    # filename = Path(image_link).name
+    image_save_path = os.path.join(save_folder, str(filename))
 
     if os.path.exists(image_save_path):
         return
@@ -65,21 +69,41 @@ def download_image(image_link, save_folder, retries=3, delay=3):
     
     create_placeholder_image(image_save_path) #Create a black placeholder image for invalid links/images
 
-def download_images(image_links, download_folder, allow_multiprocessing=True):
+def download_images(image_links, download_folder, allow_multiprocessing=True, filename_list=[]):
     if not os.path.exists(download_folder):
         os.makedirs(download_folder)
 
+    # if allow_multiprocessing:
+    #     download_image_partial = partial(
+    #         download_image, save_folder=download_folder, retries=3, delay=3, filename='')
+
+    #     with multiprocessing.Pool(64) as pool:
+    #         list(tqdm(pool.imap(download_image_partial, image_links), total=len(image_links)))
+    #         pool.close()
+    #         pool.join()
+    # else:
+    #     for image_link in tqdm(image_links, total=len(image_links)):
+    #         download_image(image_link, save_folder=download_folder, retries=3, delay=3, filename=filename)
+
+    if len(filename_list) != len(image_links):
+        raise ValueError("The length of filename_list must match the length of image_links")
+
     if allow_multiprocessing:
-        download_image_partial = partial(
-            download_image, save_folder=download_folder, retries=3, delay=3)
+        # Partial function now accepts both image_link and corresponding filename
+        # def download_image_partial(args):
+        #     image_link, filename = args
+        #     return download_image(image_link, save_folder=download_folder, retries=3, delay=3, filename=filename)
+
+        # Pair each image link with its corresponding filename
+        image_filename_pairs = list(zip(image_links, filename_list))
 
         with multiprocessing.Pool(64) as pool:
-            list(tqdm(pool.imap(download_image_partial, image_links), total=len(image_links)))
+            list(tqdm(pool.imap(download_image_partial, image_filename_pairs), total=len(image_links)))
             pool.close()
             pool.join()
     else:
-        for image_link in tqdm(image_links, total=len(image_links)):
-            download_image(image_link, save_folder=download_folder, retries=3, delay=3)
+        for image_link, filename in tqdm(zip(image_links, filename_list), total=len(image_links)):
+            download_image(image_link, save_folder=download_folder, retries=3, delay=3, filename=filename)
         
 
 def get_image_links_from_csv(csv_file_path, url_column_name):
@@ -88,10 +112,14 @@ def get_image_links_from_csv(csv_file_path, url_column_name):
     return image_links
 
 
+
 csv_file_path = os.path.join("dataset", "train.csv")
 url_column_name = 'image_link'  
-download_folder = os.path.join("dataset", "images")
+download_folder = os.path.join("dataset", "images2")
 
-
+data = pd.read_csv('/home/dhatri/amazon-hackathon/dataset/train.csv')
+data['index'] = range(1, len(data) + 1)
+data.drop('group_id', axis=1, inplace=True)
+filename_list = data['index'].tolist()
 image_links = get_image_links_from_csv(csv_file_path, url_column_name)
-download_images(image_links, download_folder, allow_multiprocessing=True)
+download_images(image_links, download_folder, allow_multiprocessing=True, filename_list=filename_list)
