@@ -13,6 +13,7 @@ from functools import partial
 import requests
 import urllib
 from PIL import Image
+import sys
 
 def download_image_partial(args):
     image_link, filename = args
@@ -111,7 +112,12 @@ def get_image_links_from_csv(csv_file_path, url_column_name):
     image_links = df[url_column_name].dropna().tolist()  
     return image_links
 
+if __name__ == '__main__':
+    csv_file_path = os.path.join("dataset", "train.csv")
+    url_column_name = 'image_link'  
+    download_folder = os.path.join("dataset", "imgs")
 
+<<<<<<< HEAD
 
 csv_file_path = os.path.join("dataset", "train.csv")
 url_column_name = 'image_link'  
@@ -123,3 +129,8 @@ data.drop('group_id', axis=1, inplace=True)
 filename_list = data['index'].tolist()
 image_links = get_image_links_from_csv(csv_file_path, url_column_name)
 download_images(image_links, download_folder, allow_multiprocessing=True, filename_list=filename_list)
+=======
+    # Fetch image links and download images
+    image_links = get_image_links_from_csv(csv_file_path, url_column_name)
+    download_images(image_links, download_folder, allow_multiprocessing=True)
+>>>>>>> 4ec9f7c671eb68aaa60d4f750e13f34a052963c2

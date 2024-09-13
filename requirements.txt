@@ -1,0 +1,7 @@
+requests
+pandas 
+tqdm
+numpy 
+pillow
+spacy
+pytesseract
