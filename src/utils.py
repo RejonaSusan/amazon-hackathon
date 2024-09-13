@@ -88,9 +88,9 @@ def get_image_links_from_csv(csv_file_path, url_column_name):
     return image_links
 
 
-csv_file_path = 'path_to_your_csv_file.csv'
-url_column_name = 'image_url_column_name'  
-download_folder = 'path_to_download_folder'
+csv_file_path = os.path.join("dataset", "train.csv")
+url_column_name = 'image_link'  
+download_folder = os.path.join("dataset", "images")
 
 
 image_links = get_image_links_from_csv(csv_file_path, url_column_name)
