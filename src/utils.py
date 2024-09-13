@@ -13,6 +13,7 @@ from functools import partial
 import requests
 import urllib
 from PIL import Image
+import sys
 
 def common_mistake(unit):
     if unit in constants.allowed_units:
@@ -87,11 +88,11 @@ def get_image_links_from_csv(csv_file_path, url_column_name):
     image_links = df[url_column_name].dropna().tolist()  
     return image_links
 
+if __name__ == '__main__':
+    csv_file_path = '/Users/rejonasusan/Desktop/student_resource 3/dataset/train.csv'
+    url_column_name = 'image_link'  
+    download_folder = '/Users/rejonasusan/Desktop/student_resource 3/dataset/imgs'
 
-csv_file_path = 'path_to_your_csv_file.csv'
-url_column_name = 'image_url_column_name'  
-download_folder = 'path_to_download_folder'
-
-
-image_links = get_image_links_from_csv(csv_file_path, url_column_name)
-download_images(image_links, download_folder, allow_multiprocessing=True)
+    # Fetch image links and download images
+    image_links = get_image_links_from_csv(csv_file_path, url_column_name)
+    download_images(image_links, download_folder, allow_multiprocessing=True)
