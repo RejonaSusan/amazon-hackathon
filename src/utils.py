@@ -1,14 +1,23 @@
 import re
+import constants
 import os
+import requests
 import pandas as pd
 import multiprocessing
 import time
-import urllib
-from PIL import Image
+from time import time as timer
+from tqdm import tqdm
+import numpy as np
 from pathlib import Path
 from functools import partial
-from tqdm import tqdm
-import constants
+import requests
+import urllib
+from PIL import Image
+import sys
+
+def download_image_partial(args):
+    image_link, filename = args
+    return download_image(image_link, save_folder=download_folder, retries=3, delay=3, filename=filename)
 
 def common_mistake(unit):
     if unit in constants.allowed_units:
@@ -20,7 +29,7 @@ def common_mistake(unit):
     return unit
 
 def parse_string(s):
-    s_stripped = "" if s is None or str(s) == 'nan' else s.strip()
+    s_stripped = "" if s==None or str(s)=='nan' else s.strip()
     if s_stripped == "":
         return None, None
     pattern = re.compile(r'^-?\d+(\.\d+)?\s+[a-zA-Z\s]+$')
@@ -34,6 +43,7 @@ def parse_string(s):
             unit, s, constants.allowed_units))
     return number, unit
 
+
 def create_placeholder_image(image_save_path):
     try:
         placeholder_image = Image.new('RGB', (100, 100), color='black')
@@ -41,18 +51,12 @@ def create_placeholder_image(image_save_path):
     except Exception as e:
         return
 
-def sanitize_filename(filename):
-    # Replace any characters not allowed in filenames with an underscore
-    return re.sub(r'[<>:"/\\|?*]', '_', filename)
-
-def download_image(image_info, save_folder, retries=3, delay=3):
-    image_link, entity_name, grp_id = image_info
-    if not isinstance(image_link, str) or not isinstance(entity_name, str) or not isinstance(grp_id, str):
+def download_image(image_link, save_folder, retries=3, delay=3, filename=None):
+    if not isinstance(image_link, str):
         return
 
-    # Sanitize the entity name and group ID to be used as a filename
-    filename = f"{sanitize_filename(grp_id)}_{sanitize_filename(entity_name)}.jpg"
-    image_save_path = os.path.join(save_folder, filename)
+    # filename = Path(image_link).name
+    image_save_path = os.path.join(save_folder, str(filename))
 
     if os.path.exists(image_save_path):
         return
@@ -64,36 +68,55 @@ def download_image(image_info, save_folder, retries=3, delay=3):
         except:
             time.sleep(delay)
     
-    create_placeholder_image(image_save_path) # Create a black placeholder image for invalid links/images
+    create_placeholder_image(image_save_path) #Create a black placeholder image for invalid links/images
 
-def download_images(image_infos, download_folder, allow_multiprocessing=True):
+def download_images(image_links, download_folder, allow_multiprocessing=True, filename_list=[]):
     if not os.path.exists(download_folder):
         os.makedirs(download_folder)
 
+    # if allow_multiprocessing:
+    #     download_image_partial = partial(
+    #         download_image, save_folder=download_folder, retries=3, delay=3, filename='')
+
+    #     with multiprocessing.Pool(64) as pool:
+    #         list(tqdm(pool.imap(download_image_partial, image_links), total=len(image_links)))
+    #         pool.close()
+    #         pool.join()
+    # else:
+    #     for image_link in tqdm(image_links, total=len(image_links)):
+    #         download_image(image_link, save_folder=download_folder, retries=3, delay=3, filename=filename)
+
+    if len(filename_list) != len(image_links):
+        raise ValueError("The length of filename_list must match the length of image_links")
+
     if allow_multiprocessing:
-        download_image_partial = partial(
-            download_image, save_folder=download_folder, retries=3, delay=3)
+        # Partial function now accepts both image_link and corresponding filename
+        # def download_image_partial(args):
+        #     image_link, filename = args
+        #     return download_image(image_link, save_folder=download_folder, retries=3, delay=3, filename=filename)
+
+        # Pair each image link with its corresponding filename
+        image_filename_pairs = list(zip(image_links, filename_list))
 
         with multiprocessing.Pool(64) as pool:
-            list(tqdm(pool.imap(download_image_partial, image_infos), total=len(image_infos)))
+            list(tqdm(pool.imap(download_image_partial, image_filename_pairs), total=len(image_links)))
             pool.close()
             pool.join()
     else:
-        for image_info in tqdm(image_infos, total=len(image_infos)):
-            download_image(image_info, save_folder=download_folder, retries=3, delay=3)
+        for image_link, filename in tqdm(zip(image_links, filename_list), total=len(image_links)):
+            download_image(image_link, save_folder=download_folder, retries=3, delay=3, filename=filename)
+        
 
-def get_image_links_entities_and_group_ids_from_csv(csv_file_path, url_column_name, entity_column_name, grp_id_column_name):
+def get_image_links_from_csv(csv_file_path, url_column_name):
     df = pd.read_csv(csv_file_path)
-    image_infos = df[[url_column_name, entity_column_name, grp_id_column_name]].dropna()
-    return image_infos.values.tolist()
+    image_links = df[url_column_name].dropna().tolist()  
+    return image_links
 
 if __name__ == '__main__':
     csv_file_path = os.path.join("../dataset", "train.csv")
     url_column_name = 'image_link'  
-    entity_column_name = 'entity_name'  # Column containing the entity names
-    grp_id_column_name = 'group_id'  # Column containing the group IDs
     download_folder = os.path.join("../dataset", "imgs")
 
-    # Fetch image links, entities, and group IDs, and download images
-    image_infos = get_image_links_entities_and_group_ids_from_csv(csv_file_path, url_column_name, entity_column_name, grp_id_column_name)
-    download_images(image_infos, download_folder, allow_multiprocessing=True)
+    # Fetch image links and download images
+    image_links = get_image_links_from_csv(csv_file_path, url_column_name)
+    download_images(image_links, download_folder, allow_multiprocessing=True)
